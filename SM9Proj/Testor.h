@@ -9,7 +9,7 @@ public:
 	Testor();
 	~Testor();
 public:
-	static void KGC_Standard_Test();
 	static void Sign_Standard_Test();
+	static void Enc_Standard_Test();
 };
 

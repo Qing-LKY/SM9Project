@@ -4,7 +4,7 @@
 using namespace std;
 
 #define BIG_LEN 2000
-#define IN_TEST 1
+//#define IN_TEST
 
 extern "C"
 {

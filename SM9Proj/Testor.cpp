@@ -10,6 +10,8 @@
 
 #include <fstream>
 
+#include <iostream>
+
 extern "C"
 {
 #include "miracl.h"
@@ -25,7 +27,7 @@ Testor::~Testor()
 {
 }
 
-void Testor::KGC_Standard_Test()
+void Testor::Sign_Standard_Test()
 {
 	FILE *fp;
 
@@ -35,7 +37,7 @@ void Testor::KGC_Standard_Test()
 	BigMath::init_big(m);
 
 	errno_t err;
-	err = fopen_s(&fp, "standardprik.txt", "r+");
+	err = fopen_s(&fp, "tests/sign_prik.txt", "r+");
 	cinnum(m, fp);
 	fclose(fp);
 
@@ -73,4 +75,50 @@ void Testor::KGC_Standard_Test()
 		printf("OK");
 	else
 		printf("NG");
+}
+
+void Testor::Enc_Standard_Test()
+{
+	FILE* fp;
+
+	big m;
+	string pub;
+
+	BigMath::init_big(m);
+
+	errno_t err;
+	err = fopen_s(&fp, "tests/enc_pubk.txt", "r+");
+	if (fp == NULL)
+	{
+		puts("No test file!");
+		return;
+	}
+	cinnum(m, fp);
+	fclose(fp);
+	// puts("ss");
+
+	pub = Convert::puts_big(m);
+
+	string pri;
+
+	err = fopen_s(&fp, "tests/enc_prik.txt", "r+");
+	if (fp == NULL)
+	{
+		puts("No test file!");
+		return;
+	}
+	cinnum(m, fp);
+	fclose(fp);
+
+	pri = Convert::puts_big(m);
+
+	string msg = "Chinese IBE standard";
+	string uid = "Bob";
+
+	string cipher = SM9::encrypt(pub, uid, msg);
+	cout << YHex::Encode(cipher, 1) << endl;
+
+	string mm = SM9::decrypt(cipher, uid, pri);
+	cout << YHex::Encode(mm, 1) << endl;
+	cout << mm;
 }
