@@ -31,7 +31,7 @@ std::string Convert::puts_big(big& var) {
 
 // 国标: 7.2.6 域元素变字符串 (length = BN_LEN)
 std::string Convert::puts_big(big& var, int len) {
-	int length = len * sizeof(*(var->w)); // sizeof (mr_small)
+	int length = len; // sizeof (mr_small)
 	char* buffer = new char[length];
 	int ret = big_to_bytes(length, var, buffer, TRUE);
 	string result(buffer, ret);
@@ -103,7 +103,7 @@ std::string Convert::puts_ecn2_big(big& var) {
 	BigMath::init_big(tmp);
 	redc(var, tmp);
 
-	int length = tmp->len * sizeof(tmp->w);
+	int length = tmp->len * sizeof(*(tmp->w));
 	char *buffer = new char[length];
 	int ret = big_to_bytes(length, tmp, buffer, TRUE);
 	string result(buffer, ret);
@@ -118,7 +118,7 @@ std::string Convert::puts_ecn2_big(big& var, int len) {
 	BigMath::init_big(tmp);
 	redc(var, tmp);
 
-	int length = len * sizeof(tmp->w);
+	int length = len;
 	char* buffer = new char[length];
 	int ret = big_to_bytes(length, tmp, buffer, TRUE);
 	string result(buffer, ret);

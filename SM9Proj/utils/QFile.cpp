@@ -46,6 +46,7 @@ string QFile::get_file_content(const string& fname)
 	if (fp == NULL)
 	{
 		cout << "Error: Failed to open file " << fname << " !" << endl;
+		text.clear();
 		return text;
 	}
 	while ((tmp = fread(buf, 1, BUF_SIZE, fp)) == BUF_SIZE)

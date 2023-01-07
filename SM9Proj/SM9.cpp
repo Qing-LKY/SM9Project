@@ -407,13 +407,20 @@ string SM9::encrypt(const string& masterPublicK, const string& uid, const string
 	// p = [h_1] P_1
 	ecurve_mult(h_1, ParamSM9::param_P1, p);
 	// Q_B = p + pub
-	Convert::gets_epoint(pub, masterPublicK.c_str());
+	Convert::gets_epoint(pub, masterPublicK.c_str());	
 	ecurve_add(pub, p);
+	epoint_copy(p, Q_B);
 
 	while (1) 
 	{
 		// A2: generate random number r \in [1, N - 1]
+#ifdef IN_TEST
+		string rHex = YHex::Decode("AAC0541779C8FC45E3E2CB25C12B5D2576B2129AE8BB5EE2CBE5EC9E785C");
+		Convert::gets_big(r, rHex.c_str(), rHex.length());
+#else
 		bigrand(ParamSM9::param_N, r);
+#endif
+
 
 		// A3: C_1 = [r] Q_B
 		ecurve_mult(r, Q_B, C_1);
@@ -441,6 +448,7 @@ string SM9::encrypt(const string& masterPublicK, const string& uid, const string
 			break;
 		}
 	}
+
 	// A7:
 	mC_3 = MAC(K_2, mC_2);
 	
@@ -482,7 +490,11 @@ string SM9::decrypt(const string& cipher, const string& uid, const string& priva
 	// C_1: BN_LEN * 2
 	mC_1 = cipher.substr(0, BN_LEN * 2);
 	Convert::gets_epoint(C_1, mC_1.c_str());
-	if (!ParamSM9::isPointOnG1(C_1)) goto END;
+	if (!ParamSM9::isPointOnG1(C_1))
+	{
+		// puts("Not on G1!");
+		goto END;
+	}
 
 	// B2: w = e(C_1, de_B)
 	Convert::gets_ecn2_byte128(de_B, privateK.c_str());
@@ -496,7 +508,11 @@ string SM9::decrypt(const string& cipher, const string& uid, const string& priva
 	klen = mlen + (0x100 / 8);	
 	K = H_v(mC_1 + mw + uid, klen);
 	K_1 = K.substr(0, mlen);
-	if (!str_not_zero(K_1)) goto END;
+	if (!str_not_zero(K_1))
+	{
+		// puts("K1 is none!");
+		goto END;
+	}
 	message = str_xor(mC_2, K_1);
 
 	// B4: varify hash
@@ -507,7 +523,7 @@ string SM9::decrypt(const string& cipher, const string& uid, const string& priva
 	if (!u.compare(mC_3))
 	{
 		puts("Bad Hash");
-		// message.clear();
+		message.clear();
 		goto END;
 	}
 

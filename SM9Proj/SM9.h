@@ -46,8 +46,8 @@ public :
 	*/
 	static bool verify(const string& masterPublicK, const string& id, const Signature& signature, const string& message);
 
-	// 传入加密主公钥 用户私钥 消息
-	static string encrypt(const string& masterPublicK, const string& privateK, const string& message);
+	// 传入加密主公钥 解密用户id 消息
+	static string encrypt(const string& masterPublicK, const string& uid, const string& message);
 	// 传入密文，解密用户id，解密用户私钥
 	static string decrypt(const string& cipher, const string& uid, const string& privateK);
 

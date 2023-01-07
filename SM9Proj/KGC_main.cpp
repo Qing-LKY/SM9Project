@@ -58,7 +58,12 @@ void KGC_main::initState()
 	magic_tag = 1;
 	current_uid.assign("root");
 	Users.insert(current_uid);
+	
+	reloadEncKeys();
+	reloadSignKeys();
 }
+
+#define DEBUG_LOAD
 
 bool KGC_main::loadState()
 {
@@ -74,7 +79,7 @@ bool KGC_main::loadState()
 
 	fread(&len, sizeof(int), 1, fp);
 	if (len != MAGIC_NUMBER) return fclose(fp), false; // 文件可能被破坏了
-
+	
 	// 获取 tag
 	fread(&magic_tag, sizeof(int), 1, fp);
 
@@ -152,7 +157,8 @@ bool KGC_main::saveState()
 
 	// 保存 mxlen
 	mxlen = 0;
-	mxlen = max(mxlen, (int)prik.length());
+	mxlen = max(mxlen, (int)sign_ke.length());
+	mxlen = max(mxlen, (int)enc_ke.length());
 	for (auto uid : Users) mxlen = max(mxlen, (int)uid.length());
 	fwrite(&mxlen, sizeof(int), 1, fp);
 
@@ -205,7 +211,7 @@ bool KGC_main::checkEncKeys()
 	string tmp;
 	for (auto uid : Users)
 	{
-		tmp = SM9_KGC::genSignPrivateKey(enc_ke, uid);
+		tmp = SM9_KGC::genEncPrivateKey(enc_ke, uid);
 		if (tmp.empty()) return false;
 	}
 	return true;
@@ -213,6 +219,7 @@ bool KGC_main::checkEncKeys()
 
 bool KGC_main::reloadSignKeys()
 {
+	bool happen = 0;
 	MasterKeyPair mainKey;
 	while (!checkSignKeys())
 	{
@@ -220,12 +227,18 @@ bool KGC_main::reloadSignKeys()
 		mainKey = SM9_KGC::genSignMasterKeyPair();
 		sign_pub = mainKey.getPublicKey();
 		sign_ke = mainKey.getPrivateKey();
+		happen = 1;
+	}
+	if (happen)
+	{
+		puts("Warning: key reloads. Signature and Enc file generate before has been aborted!");
 	}
 	return true;
 }
 
 bool KGC_main::reloadEncKeys()
 {
+	bool happen = 0;
 	MasterKeyPair mainKey;
 	while (!checkEncKeys())
 	{
@@ -233,6 +246,11 @@ bool KGC_main::reloadEncKeys()
 		mainKey = SM9_KGC::genEncMasterKeyPair();
 		enc_pub = mainKey.getPublicKey();
 		enc_ke = mainKey.getPrivateKey();
+		happen = 1;
+	}
+	if (happen)
+	{
+		puts("Warning: key reloads. Signature and Enc file generate before has been aborted!");
 	}
 	return true;
 }
@@ -240,9 +258,19 @@ bool KGC_main::reloadEncKeys()
 void KGC_main::KGC_Boot()
 {
 	// 初始化 SM9 标准参数
+	puts("Init system...");
 	SM9::init();
 	// 加载上次的状态
-	if (!loadState()) initState();
+	puts("Auto loading...");
+	if (loadState()) 
+	{
+		puts("Auto load success!");
+	}
+	else 
+	{
+		puts("Auto load failed. Reset the system...");
+		initState();
+	}
 	return;
 }
 
@@ -251,6 +279,8 @@ bool KGC_main::createUser(const string& uid)
 	// 用户创建
 	if (Users.find(uid) != Users.end()) return false; // exist
 	Users.insert(uid);
+	reloadEncKeys();
+	reloadSignKeys();
 	return true;
 }
 
@@ -284,9 +314,9 @@ string KGC_main::getSignPriKey(const string& uid) // use for debug
 	prik = SM9_KGC::genSignPrivateKey(sign_ke, uid);
 	if (prik.empty())
 	{
-		puts("Needs Reload!");
-		// reloadKeys();
-		// prik = SM9_KGC::genSignPrivateKey(mainKey.getPrivateKey(), uid);
+		puts("Uid fits bad, system key reload!");
+		reloadSignKeys();
+		prik = SM9_KGC::genSignPrivateKey(sign_ke, uid);
 	}
 	return prik;
 }
@@ -297,9 +327,9 @@ string KGC_main::getEncPriKey(const string& uid) // use for debug
 	prik = SM9_KGC::genEncPrivateKey(enc_ke, uid);
 	if (prik.empty())
 	{
-		puts("Needs Reload!");
-		// reloadKeys();
-		// prik = SM9_KGC::genSignPrivateKey(mainKey.getPrivateKey(), uid);
+		puts("Uid fits bad, system key reload!");
+		reloadEncKeys();
+		prik = SM9_KGC::genEncPrivateKey(enc_ke, uid);
 	}
 	return prik;
 }
@@ -325,7 +355,7 @@ bool KGC_main::verify(const string& uid, Signature sig, const string& msg)
 
 string KGC_main::encrypt(const string& uid, const string& msg)
 {
-	return SM9::encrypt(enc_pub, getEncPriKey(), msg);
+	return SM9::encrypt(enc_pub, uid, msg);
 }
 
 string KGC_main::decrypt(const string& cipher)

@@ -14,7 +14,7 @@
 
 using namespace std;
 
-#define INTERACT_DEBUG 1
+//#define INTERACT_DEBUG
 
 Interact::Interact()
 {
@@ -149,6 +149,7 @@ void Interact::do_ls()
 		cout << uid << "  ";
 	}
 	cout << endl;
+	puts("");
 }
 
 void Interact::do_reg()
@@ -166,6 +167,7 @@ void Interact::do_reg()
 	{
 		cout << "Success: " << s << " has been registered!" << endl;
 	}
+	puts("");
 }
 
 void Interact::do_su()
@@ -183,12 +185,14 @@ void Interact::do_su()
 	{
 		cout << "Success! Welcome back, " << s << "!" << endl;
 	}
+	puts("");
 }
 
 void Interact::do_save()
 {
 	if (!KGC_main::saveState()) puts("Error: Failed to save state!");
 	else puts("Successfully saved!");
+	puts("");
 }
 
 void Interact::do_sig()
@@ -302,24 +306,31 @@ void Interact::do_dec()
 	int tmp;
 
 	puts("Input the text file you want to decrypt:");
-	fname = readline("[e.g. a.txt.enc]: ");
+	fname = readline("[default: a.txt.enc]: ");
+
+	if (fname == "") fname = "a.txt.enc";
 
 	// get message
 	text = QFile::get_file_content(fname);
-
-#ifdef INTERACT_DEBUG
-	cout << "Text:" << endl;
-	cout << text << endl;
-#endif
+	if (text.empty()) goto END;
 
 	cipher = YHex::Decode(text);
 
 	// decrypt
 	msg = KGC_main::decrypt(cipher, KGC_main::current_uid);
+
+#ifdef INTERACT_DEBUG
+	cout << "Text:" << endl;
+	cout << text << endl;
+	cout << "Cipher len: " << cipher.length() << endl;
+	cout << "Message len: " << msg.length() << endl;
+	cout << "Message:" << endl;
+	cout << msg << endl;
+#endif
 	
 	if (msg.empty())
 	{
-		cout << "Error when decrypt!" << endl;
+		cout << "Wrong key!" << endl;
 	}
 	else
 	{
@@ -327,6 +338,7 @@ void Interact::do_dec()
 		cout << msg << endl;
 	}
 
+END:
 	puts("");
 	return;
 }
@@ -338,21 +350,28 @@ void Interact::do_enc()
 	int tmp;
 
 	puts("Input the text file you want to encrypt:");
-	fname = readline("[e.g. a.txt]: ");
+	fname = readline("[default: a.txt]: ");
+
+	if (fname == "") fname = "a.txt";
+
 	puts("Input the target you want to send:");
-	uid = readline("[e.g. qinglky]: ");
+	uid = readline("[default: root]: ");
+
+	if (uid == "") uid = "root";
 
 	if (!KGC_main::haveUser(uid))
 	{
 		cout << "Error: " << uid << " not found! Register it first!" << endl;
-		return;
+		goto END;
 	}
 
 	// get message
 	msg = QFile::get_file_content(fname);
+	if (msg.empty()) goto END;
 
 	// encrypt
 	cipher = KGC_main::encrypt(uid, msg);
+	if (cipher.empty()) goto END;
 
 	fname += ".enc";
 	text = YHex::Encode(cipher);
@@ -360,20 +379,34 @@ void Interact::do_enc()
 #ifdef INTERACT_DEBUG
 	cout << "Text:" << endl;
 	cout << text << endl;
+	cout << "Cipher len: " << cipher.length() << endl; 
+	cout << "Message len: " << msg.length() << endl;
+	cout << "Message:" << endl;
+	cout << msg << endl;
 #endif
 
 	QFile::generate_file(fname, text);
 
+END:
 	puts("");
 	return;
 }
 
 void Interact::main()
 {
+	int ti = 0;
 	KGC_main::KGC_Boot();
 	welcome();
 	while (1)
 	{
+		if (ti == 0)
+		{
+			puts("Auto Save....");
+			do_save();
+			ti += 10;
+			continue;
+		}
+		ti--;
 		string cmd = wait_input();
 		if (cmd.substr(0, 4) == "help")
 		{
@@ -422,7 +455,8 @@ void Interact::main()
 		}
 		else
 		{
-			puts("Unsupported commands. Just type command itself.");
+			puts("Unsupported commands. Type help to learn more.");
+			puts("");
 		}
 	}
 }
