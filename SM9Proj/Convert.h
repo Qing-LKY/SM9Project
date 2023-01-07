@@ -35,6 +35,7 @@ public:
 
 public:
 	static string puts_big(big& var);
+	static string puts_big(big& var, int length);
 	static void gets_big(big& var, const unsigned char* buf, int length);
 	static void gets_big(big& var, const char* buf, int length) { 
 		gets_big(var, (const unsigned char*)buf, length); }
@@ -48,6 +49,7 @@ public:
 
 private:
 	static string puts_ecn2_big(big& var);
+	static string puts_ecn2_big(big& var, int len);
 
 };
 

@@ -17,10 +17,23 @@ void Convert::gets_big(big& var, const unsigned char* buf, int length) {
 	bytes_to_big(length, (const char*)buf, var);
 }
 
+// 国标: 7.2.2 整数变字符串
 std::string Convert::puts_big(big& var) {
-	int length = var->len * sizeof(var->w);
+	// 存储空间的字节大小
+	int length = var->len * sizeof(*(var->w)); // sizeof (mr_small)
 	char *buffer = new char[length];
 	int ret = big_to_bytes(length, var, buffer, FALSE);
+	string result(buffer, ret);
+
+	delete[] buffer;
+	return result;
+}
+
+// 国标: 7.2.6 域元素变字符串 (length = BN_LEN)
+std::string Convert::puts_big(big& var, int len) {
+	int length = len * sizeof(*(var->w)); // sizeof (mr_small)
+	char* buffer = new char[length];
+	int ret = big_to_bytes(length, var, buffer, TRUE);
 	string result(buffer, ret);
 
 	delete[] buffer;
@@ -100,12 +113,28 @@ std::string Convert::puts_ecn2_big(big& var) {
 	return result;
 }
 
+std::string Convert::puts_ecn2_big(big& var, int len) {
+	big tmp = NULL;
+	BigMath::init_big(tmp);
+	redc(var, tmp);
+
+	int length = len * sizeof(tmp->w);
+	char* buffer = new char[length];
+	int ret = big_to_bytes(length, tmp, buffer, TRUE);
+	string result(buffer, ret);
+
+	delete[] buffer;
+	BigMath::release_big(tmp);
+	return result;
+}
+
 std::string Convert::puts_ecn2(ecn2& var) {
 	string result;
-	result.append(puts_ecn2_big(var.x.b));
-	result.append(puts_ecn2_big(var.x.a));
-	result.append(puts_ecn2_big(var.y.b));
-	result.append(puts_ecn2_big(var.y.a));
+	// F_p^m => (a_{m - 1}, ..., a_0)
+	result.append(puts_ecn2_big(var.x.b, BN_LEN));
+	result.append(puts_ecn2_big(var.x.a, BN_LEN));
+	result.append(puts_ecn2_big(var.y.b, BN_LEN));
+	result.append(puts_ecn2_big(var.y.a, BN_LEN));
 	return result;
 }
 
@@ -119,8 +148,8 @@ std::string Convert::puts_epoint(epoint* var) {
 
 	epoint_get(var, x, y);
 
-	result.append(puts_big(x));
-	result.append(puts_big(y));
+	result.append(puts_big(x, BN_LEN));
+	result.append(puts_big(y, BN_LEN));
 
 	BigMath::release_big(x);
 	BigMath::release_big(y);
