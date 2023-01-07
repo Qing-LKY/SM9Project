@@ -12,7 +12,7 @@ using namespace std;
 #define HID_ENCRYPT			0x03
 
 /**
-* SM9�㷨ʵ��
+* SM9算法实现
 * @author YUAN
 */
 class SM9 {
@@ -27,34 +27,39 @@ public:
 
 public :
 	/**
-	* ǩ��
+	* 签名
 	*
-	* @param masterPublicK	����Կ
-	* @param privateK		�û�ǩ��˽Կ
-	* @param message		��ǩ��Ϣ
-	* @return				ǩ����ʵ��
+	* @param masterPublicK	主公钥
+	* @param privateK		用户签名私钥
+	* @param message		待签消息
+	* @return				签名类实例
 	*/
 	static Signature sign(const string& masterPublicK, const string& privateK, const string& message);
 
 	/**
-	* ��֤
+	* 验证
 	*
-	* @param masterPublicK	����Կ
-	* @param id				�û���ʶ
-	* @param message		������Ϣ
+	* @param masterPublicK	主公钥
+	* @param id				用户标识
+	* @param message		待验消息
 	* @return				true or false
 	*/
 	static bool verify(const string& masterPublicK, const string& id, const Signature& signature, const string& message);
 
+	// 传入加密主公钥 用户私钥 消息
+	static string encrypt(const string& masterPublicK, const string& privateK, const string& message);
+	// 传入密文，解密用户id，解密用户私钥
+	static string decrypt(const string& cipher, const string& uid, const string& privateK);
+
 private:
 	/**
-	* H_1��H_2�Ĺ��в��֣�ͨ����������ʵ��ǩ������֤�����в�ͬ�����뺯����
-	* @return �ַ�����ʽ�Ĵ���
+	* H_1和H_2的共有部分，通过调整输入实现签名和验证过程中不同的密码函数。
+	* @return 字符串格式的大数
 	*/
 	static string H(const string&z);
 
 	/**
-	* ͨ��SM3ɢ��ִ�� 8 * ceil( keyLen ) ��ɢ�в��������һ�顣
+	* 通过SM3散列执行 8 * ceil( keyLen ) 轮散列并处理最后一组。
 	* @return Ha_1 || Ha_2 ... || Ha_ceil(hlen/v) || Ha!_ceil(hlen/v)
 	*/
 	static string H_v(const string& z, int keyLen);
@@ -63,17 +68,15 @@ private:
 	static string MAC(const string& k, const string& z);
 	static string KDF_bitlen(const string& z, int keyLen);
 	static string true_hv(const string& z);
-	static string encrypt(const string& masterPublicK, const string& privateK, const string& message);
-	static string decrypt(string cipher, const string uid, const string de_B)
 
 protected:
 	/**
-	* ���뺯��H_1()�����û���ʶ��ǩ��˽Կ���ɺ���ʶ����͹�ϣͷΪ���룬������֤ǩ����
+	* 密码函数H_1()，以用户标识、签名私钥生成函数识别符和哈希头为输入，用于验证签名。
 	*/
 	static string H_1(const string& id, char hid);
 
 	/**
-	* ���뺯��H_2()������Ϣ��G_T�е�Ԫ�غ͹�ϣͷΪ���룬��������ǩ����
+	* 密码函数H_2()，以消息、G_T中的元素和哈希头为输入，用于生成签名。
 	*/
 	static string H_2(const string& message, const string& w);
 

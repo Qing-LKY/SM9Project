@@ -9,10 +9,10 @@
 #include "Pairing.h"
 #include "../SM9Proj/SM3/YSM3.h"
 
-#ifdef IN_TEST
 #include <fstream>
 #include "../SM9Proj/utils/YHex.h"
-#endif
+
+#include <iostream>
 
 bool SM9::isInited = false;
 
@@ -445,7 +445,7 @@ string SM9::encrypt(const string& masterPublicK, const string& uid, const string
 	mC_3 = MAC(K_2, mC_2);
 	
 	// A8:
-	C = mC_1 + mC_2 + mC_3;
+	C = mC_1 + mC_3 + mC_2;
 	
 END:
 	BigMath::release_epoint(Q_B);
@@ -456,10 +456,10 @@ END:
 	BigMath::release_epoint(C_1);
 	BigMath::release_big(zero);
   
-  	return C;
+	return C;
 }
 
-string SM9::decrypt(string cipher, const string uid, const string mPrivateK)
+string SM9::decrypt(const string& cipher, const string& uid, const string& privateK)
 {
 	epoint *C_1, *C_3;
 	ecn2 de_B;
@@ -476,36 +476,45 @@ string SM9::decrypt(string cipher, const string uid, const string mPrivateK)
 
 	BigMath::init_epoint(C_1);
 	BigMath::init_epoint(C_3);
+	BigMath::init_ecn2(de_B);
 
 	// B1: get C1
-	mC_1 = cipher.substr(0, BIG_LEN);
+	// C_1: BN_LEN * 2
+	mC_1 = cipher.substr(0, BN_LEN * 2);
 	Convert::gets_epoint(C_1, mC_1.c_str());
-	if (!ParamSM9::isPointOnG1(C_1))
-		return NULL;
+	if (!ParamSM9::isPointOnG1(C_1)) goto END;
 
 	// B2: w = e(C_1, de_B)
-	Convert::gets_ecn2_byte128(de_B, mPrivateK.c_str());
+	Convert::gets_ecn2_byte128(de_B, privateK.c_str());
 	Pairing::calcRatePairing(w, de_B, C_1, ParamSM9::param_t, ParamSM9::norm_X);
 	mw = w.toString();
 
 	// B3: decrypt 
 	mC_2 =
-		cipher.substr(BIG_LEN + 0x100);	// 0x100 is the length of SM3 output
+		cipher.substr(BN_LEN * 2 + (0x100 / 8));	// 0x100 is the length of SM3 output
 	mlen = mC_2.length();
 	klen = mlen + (0x100 / 8);	
-	K = H_v(mC_1, klen);
+	K = H_v(mC_1 + mw + uid, klen);
 	K_1 = K.substr(0, mlen);
-	if (!str_not_zero(K_1))
-		return NULL;
+	if (!str_not_zero(K_1)) goto END;
 	message = str_xor(mC_2, K_1);
 
 	// B4: varify hash
 	K_2 = K.substr(mlen);
 	u = SM9::MAC(K_2, mC_2);
 	mC_3 =
-		cipher.substr(BIG_LEN, 0x100);	// 0x100 is the length of SM3 output
+		cipher.substr(BN_LEN * 2, 0x100);	// 0x100 is the length of SM3 output
 	if (!u.compare(mC_3))
-		return NULL;
+	{
+		puts("Bad Hash");
+		// message.clear();
+		goto END;
+	}
+
+END:
+	BigMath::release_epoint(C_1);
+	BigMath::release_epoint(C_3);
+	BigMath::release_ecn2(de_B);
 
 	return message;
 }
