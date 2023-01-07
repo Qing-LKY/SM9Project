@@ -26,8 +26,13 @@ int KGC_main::MAGIC_NUMBER = 0xAF02022;
 
 set<string> KGC_main::Users;
 string KGC_main::current_uid;
-MasterKeyPair KGC_main::mainKey;
 int KGC_main::magic_tag;
+
+string KGC_main::sign_pub;
+string KGC_main::sign_ke;
+
+string KGC_main::enc_pub;
+string KGC_main::enc_ke;
 
 KGC_main::KGC_main()
 {
@@ -39,10 +44,19 @@ KGC_main::~KGC_main()
 
 void KGC_main::initState()
 {
+	MasterKeyPair tmp;
 	Users.clear();
-	mainKey = SM9_KGC::genSignMasterKeyPair();
+	
+	tmp = SM9_KGC::genSignMasterKeyPair();
+	sign_pub = tmp.getPublicKey();
+	sign_ke = tmp.getPrivateKey();
+	
+	tmp = SM9_KGC::genEncMasterKeyPair();
+	enc_pub = tmp.getPublicKey();
+	enc_ke = tmp.getPrivateKey();
+
 	magic_tag = 1;
-	current_uid.assign("root@localhost");
+	current_uid.assign("root");
 	Users.insert(current_uid);
 }
 
@@ -53,6 +67,7 @@ bool KGC_main::loadState()
 	int n, len, mxlen;
 	char* buf;
 	string tmp;
+	MasterKeyPair mainKey;
 
 	fopen_s(&fp, SAVE_FILE, "r");
 	if (fp == NULL) return false; // 打开文件失败
@@ -75,13 +90,25 @@ bool KGC_main::loadState()
 	buf = (char*)malloc(mxlen);
 	if (buf == NULL) return fclose(fp), false; // failed malloc
 
-	// 获取主私钥
+	// 获取签名主私钥
 	fread(&len, sizeof(int), 1, fp);
 	if (len > mxlen) return fclose(fp), false; // sth broken
 	fread(buf, sizeof(char), len, fp);
 	tmp.assign(buf, buf + len);
-	// 生成主密钥对
+	// 生成签名主密钥对
 	mainKey = SM9_KGC::genSignMasterKeyPairFromPri(tmp); 
+	sign_pub = mainKey.getPublicKey();
+	sign_ke = mainKey.getPrivateKey();
+	
+	// 获取加密主密钥
+	fread(&len, sizeof(int), 1, fp);
+	if (len > mxlen) return fclose(fp), false; // sth broken
+	fread(buf, sizeof(char), len, fp);
+	tmp.assign(buf, buf + len);
+	// 生成加密主密钥对
+	mainKey = SM9_KGC::genEncMasterKeyPairFromPri(tmp);
+	sign_pub = mainKey.getPublicKey();
+	sign_ke = mainKey.getPrivateKey();
 
 	// 获取人数
 	fread(&n, sizeof(int), 1, fp);
@@ -119,8 +146,6 @@ bool KGC_main::saveState()
 	if (fp == NULL) return false; // 创建文件失败
 
 	fwrite(&MAGIC_NUMBER, sizeof(int), 1, fp);
-	
-	prik = mainKey.getPrivateKey();
 
 	// 保存 tag
 	fwrite(&magic_tag, sizeof(int), 1, fp);
@@ -131,7 +156,14 @@ bool KGC_main::saveState()
 	for (auto uid : Users) mxlen = max(mxlen, (int)uid.length());
 	fwrite(&mxlen, sizeof(int), 1, fp);
 
-	// 保存 ke
+	// 保存 sign_ke
+	prik = sign_ke;
+	len = prik.length();
+	fwrite(&len, sizeof(int), 1, fp);
+	fwrite(prik.c_str(), sizeof(char), len, fp);
+
+	// 保存 enc_ke
+	prik = enc_ke;
 	len = prik.length();
 	fwrite(&len, sizeof(int), 1, fp);
 	fwrite(prik.c_str(), sizeof(char), len, fp);
@@ -157,23 +189,50 @@ bool KGC_main::saveState()
 	return true;
 }
 
-bool KGC_main::checkKeys()
+bool KGC_main::checkSignKeys()
 {
 	string tmp;
 	for (auto uid : Users)
 	{
-		tmp = SM9_KGC::genSignPrivateKey(mainKey.getPrivateKey(), uid);
+		tmp = SM9_KGC::genSignPrivateKey(sign_ke, uid);
 		if (tmp.empty()) return false;
 	}
 	return true;
 }
 
-bool KGC_main::reloadKeys()
+bool KGC_main::checkEncKeys()
 {
-	while (!checkKeys())
+	string tmp;
+	for (auto uid : Users)
+	{
+		tmp = SM9_KGC::genSignPrivateKey(enc_ke, uid);
+		if (tmp.empty()) return false;
+	}
+	return true;
+}
+
+bool KGC_main::reloadSignKeys()
+{
+	MasterKeyPair mainKey;
+	while (!checkSignKeys())
 	{
 		magic_tag++;
 		mainKey = SM9_KGC::genSignMasterKeyPair();
+		sign_pub = mainKey.getPublicKey();
+		sign_ke = mainKey.getPrivateKey();
+	}
+	return true;
+}
+
+bool KGC_main::reloadEncKeys()
+{
+	MasterKeyPair mainKey;
+	while (!checkEncKeys())
+	{
+		magic_tag++;
+		mainKey = SM9_KGC::genEncMasterKeyPair();
+		enc_pub = mainKey.getPublicKey();
+		enc_ke = mainKey.getPrivateKey();
 	}
 	return true;
 }
@@ -203,18 +262,39 @@ bool KGC_main::switchUser(const string& uid)
 	return true;
 }
 
-string KGC_main::getPriKey()
+string KGC_main::getSignPriKey()
 {
 	string uid, prik;
 	uid = current_uid;
-	prik = SM9_KGC::genSignPrivateKey(mainKey.getPrivateKey(), uid);
+	prik = SM9_KGC::genSignPrivateKey(sign_ke, uid);
 	return prik;
 }
 
-string KGC_main::getPriKey(const string& uid) // use for debug
+string KGC_main::getEncPriKey()
+{
+	string uid, prik;
+	uid = current_uid;
+	prik = SM9_KGC::genEncPrivateKey(enc_ke, uid);
+	return prik;
+}
+
+string KGC_main::getSignPriKey(const string& uid) // use for debug
 {
 	string prik;
-	prik = SM9_KGC::genSignPrivateKey(mainKey.getPrivateKey(), uid);
+	prik = SM9_KGC::genSignPrivateKey(sign_ke, uid);
+	if (prik.empty())
+	{
+		puts("Needs Reload!");
+		// reloadKeys();
+		// prik = SM9_KGC::genSignPrivateKey(mainKey.getPrivateKey(), uid);
+	}
+	return prik;
+}
+
+string KGC_main::getEncPriKey(const string& uid) // use for debug
+{
+	string prik;
+	prik = SM9_KGC::genEncPrivateKey(enc_ke, uid);
 	if (prik.empty())
 	{
 		puts("Needs Reload!");
@@ -227,11 +307,11 @@ string KGC_main::getPriKey(const string& uid) // use for debug
 Signature KGC_main::sign(const string& msg)
 {
 	Signature sig;
-	sig = SM9::sign(mainKey.getPublicKey(), getPriKey(), msg);
+	sig = SM9::sign(sign_pub, getSignPriKey(), msg);
 	return sig;
 }
 
 bool KGC_main::verify(const string& uid, Signature sig, const string& msg)
 {
-	return SM9::verify(mainKey.getPublicKey(), uid, sig, msg);
+	return SM9::verify(sign_pub, uid, sig, msg);
 }
