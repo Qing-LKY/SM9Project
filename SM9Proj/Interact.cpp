@@ -9,7 +9,8 @@
 #include <iostream>
 #include <fstream>
 
-#include "../SM9Proj/utils/YHex.h"
+#include "utils/YHex.h"
+#include "utils/QFile.h"
 
 using namespace std;
 
@@ -133,8 +134,11 @@ void Interact::do_help()
 	puts(" ver   ---  to start a verify transaction");
 	puts("            this will read the safe mail and verify it");
 	puts(" save  ---  to save KGC state");
-	puts(" ");
+	puts(" enc   ---  to encrypt with an exist id");
+	puts(" dec   ---  to decrypt with your id");
 	puts(" exit  ---  to exit our system");
+	
+	puts("");
 }
 
 void Interact::do_ls()
@@ -151,7 +155,7 @@ void Interact::do_reg()
 {
 	string s;
 	cout << "Input the uid you want to regster:" << endl;
-	cout << "[e.g. qinglkyi@qq.com]: ";
+	cout << "[e.g. qinglkyi]: ";
 	getline(cin, s); 
 	fflush(stdin);
 	if (!KGC_main::createUser(s))
@@ -168,7 +172,7 @@ void Interact::do_su()
 {
 	string s;
 	cout << "Input the uid you want to switch:" << endl;
-	cout << "[e.g. qinglkyi@qq.com]: ";
+	cout << "[e.g. qinglkyi]: ";
 	getline(cin, s);
 	fflush(stdin);
 	if (!KGC_main::switchUser(s))
@@ -187,63 +191,6 @@ void Interact::do_save()
 	else puts("Successfully saved!");
 }
 
-// Warning: '\n' means '\r' and '\n' in windows text file!
-#define __CR 1 
-
-const char header_line[] = "====================== Signature Header ======================\r\n";
-
-const int HEAD_LEN = 8 * 9 + 4 + 1 + __CR;
-
-string Interact::gen_signed_text(const string &msg, const Signature &sig)
-{
-	// TODO: Forget to add magic tags into the text
-	string all;
-	// Header Message: ".hd ....\n"
-	// TODO: A (A<<8)^B (B'<<8)^C ...
-	unsigned int pH, lH, pS, lS, pU, lU, pM, lM;
-	// deal with cr
-	int _cr = 0;
-	string T;
-
-	all += header_line;
-	_cr += __CR;
-
-	pH = all.length() + HEAD_LEN + _cr;
-	T = YHex::Encode(sig.getH());
-	lH = T.length(); // fix bugs
-	all += T + "\n";
-	_cr += __CR;
-	
-	pS = all.length() + HEAD_LEN + _cr;
-	T = YHex::Encode(sig.getS());
-	lS = T.length();
-	all += T + "\n";
-	_cr += __CR;
-
-	all += "Signed by ";
-	pU = all.length() + HEAD_LEN + _cr;
-	lU = KGC_main::current_uid.length();
-	all += KGC_main::current_uid + "\n";
-	_cr += __CR;
-	
-	all += header_line;
-	_cr += __CR;
-
-	pM = all.length() + HEAD_LEN + _cr;
-	lM = msg.length();
-	all += msg;
-
-	sprintf_s(buf, 
-		".hd %9d%9d%9d%9d%9d%9d%9d%9d\n",
-		pH, lH, pS, lS, pU, lU, pM, lM);
-
-#ifdef INTERACT_DEBUG
-	printf(".hd %d %d %d %d %d %d %d %d\n", pH, lH, pS, lS, pU, lU, pM, lM);
-#endif
-	all = string(buf) + all;
-	return all;
-}
-
 void Interact::do_sig()
 {
 	int tmp;
@@ -255,18 +202,7 @@ void Interact::do_sig()
 	fname = readline("[e.g. mail.txt]: ");
 	
 	// get msg
-	fopen_s(&fp, fname.c_str(), "r");
-	if (fp == NULL)
-	{
-		puts("Error: File not found!");
-		return;
-	}
-	while ((tmp = fread(buf, 1, BUF_SIZE, fp)) == BUF_SIZE)
-	{
-		msg += string(buf, buf + tmp);
-	}
-	msg += string(buf, buf + tmp);
-	fclose(fp);
+	msg = QFile::get_file_content(fname);
 
 	// get signature
 	sig = KGC_main::sign(msg);
@@ -282,43 +218,9 @@ void Interact::do_sig()
 
 	// generate signing txt
 	fname += ".signed";
-	text = gen_signed_text(msg, sig);
-	ofstream outf(fname.c_str(), ios::out | ios::trunc);
-	if (outf.is_open())
-	{
-		outf << text;
-		cout << "Success: generate `" << fname << "'." << endl;
-	}
-	else
-	{
-		puts("Error: Failed to write file!");
-	}
+	text = QFile::gen_signed_text(msg, sig, KGC_main::current_uid);
+	QFile::generate_file(fname, text);
 	puts("");
-}
-
-string Interact::get_string_from_file(FILE* fp, unsigned int off, unsigned int siz)
-{
-	int tmp;
-	string s;
-	
-	fseek(fp, off, SEEK_SET);
-	while (siz > BUF_SIZE)
-	{
-		tmp = fread(buf, 1, BUF_SIZE, fp);
-		if (tmp != BUF_SIZE)
-		{
-			fclose(fp);
-			puts("Error when get string from file!");
-			s.clear();
-			return s;
-		}
-		s += string(buf, buf + tmp);
-		siz -= BUF_SIZE;
-	}
-	tmp = fread(buf, 1, siz, fp);
-	s += string(buf, buf + tmp);
-	
-	return s;
 }
 
 void Interact::do_ver()
@@ -339,8 +241,8 @@ void Interact::do_ver()
 		puts("Error: Failed to open file!");
 		return;
 	}
-	tmp = fread(buf, 1, HEAD_LEN, fp);
-	if (tmp != HEAD_LEN)
+	tmp = fread(buf, 1, QFile::HEAD_LEN, fp);
+	if (tmp != QFile::HEAD_LEN)
 	{
 		fclose(fp);
 		puts("Error: Wrong format of signed file!");
@@ -362,10 +264,10 @@ void Interact::do_ver()
 #endif
 
 	// get H S uid msg
-	H = YHex::Decode(get_string_from_file(fp, pH, lH));
-	S = YHex::Decode(get_string_from_file(fp, pS, lS));
-	uid = get_string_from_file(fp, pU, lU);
-	msg = get_string_from_file(fp, pM, lM);
+	H = YHex::Decode(QFile::get_string_from_file(fp, pH, lH));
+	S = YHex::Decode(QFile::get_string_from_file(fp, pS, lS));
+	uid = QFile::get_string_from_file(fp, pU, lU);
+	msg = QFile::get_string_from_file(fp, pM, lM);
 
 #ifdef INTERACT_DEBUG
 	cout << "debug info:" << endl;
@@ -393,6 +295,79 @@ void Interact::do_ver()
 	fclose(fp);
 }
 
+void Interact::do_dec()
+{
+	string fname;
+	string msg, uid, cipher, text;
+	int tmp;
+
+	puts("Input the text file you want to decrypt:");
+	fname = readline("[e.g. a.txt.enc]: ");
+
+	// get message
+	text = QFile::get_file_content(fname);
+
+#ifdef INTERACT_DEBUG
+	cout << "Text:" << endl;
+	cout << text << endl;
+#endif
+
+	cipher = YHex::Decode(text);
+
+	// decrypt
+	msg = KGC_main::decrypt(cipher, KGC_main::current_uid);
+	
+	if (msg.empty())
+	{
+		cout << "Error when decrypt!" << endl;
+	}
+	else
+	{
+		cout << "Success! Get:" << endl;
+		cout << msg << endl;
+	}
+
+	puts("");
+	return;
+}
+
+void Interact::do_enc()
+{
+	string fname;
+	string msg, uid, cipher, text;
+	int tmp;
+
+	puts("Input the text file you want to encrypt:");
+	fname = readline("[e.g. a.txt]: ");
+	puts("Input the target you want to send:");
+	uid = readline("[e.g. qinglky]: ");
+
+	if (!KGC_main::haveUser(uid))
+	{
+		cout << "Error: " << uid << " not found! Register it first!" << endl;
+		return;
+	}
+
+	// get message
+	msg = QFile::get_file_content(fname);
+
+	// encrypt
+	cipher = KGC_main::encrypt(uid, msg);
+
+	fname += ".enc";
+	text = YHex::Encode(cipher);
+
+#ifdef INTERACT_DEBUG
+	cout << "Text:" << endl;
+	cout << text << endl;
+#endif
+
+	QFile::generate_file(fname, text);
+
+	puts("");
+	return;
+}
+
 void Interact::main()
 {
 	KGC_main::KGC_Boot();
@@ -400,38 +375,46 @@ void Interact::main()
 	while (1)
 	{
 		string cmd = wait_input();
-		if (cmd == "help")
+		if (cmd.substr(0, 4) == "help")
 		{
 			do_help();
 		}
-		else if (cmd == "ls")
+		else if (cmd.substr(0, 2) == "ls")
 		{
 			do_ls();
 		}
-		else if (cmd == "reg")
+		else if (cmd.substr(0, 3) == "reg")
 		{
 			do_reg();
 		}
-		else if (cmd == "su")
+		else if (cmd.substr(0, 2) == "su")
 		{
 			do_su();
 		}
-		else if (cmd == "save")
+		else if (cmd.substr(0, 4) == "save")
 		{
 			do_save();
 		}
-		else if (cmd == "sig")
+		else if (cmd.substr(0, 3) == "sig")
 		{
 			do_sig();
 		}
-		else if (cmd == "ver")
+		else if (cmd.substr(0, 3) == "ver")
 		{
 			do_ver();
 		}
-		else if (cmd == "exit")
+		else if (cmd.substr(0, 4) == "exit")
 		{
 			cout << "See you next time, " << KGC_main::current_uid << " !" << endl;
 			return;
+		}
+		else if (cmd.substr(0, 3) == "enc")
+		{
+			do_enc();
+		}
+		else if (cmd.substr(0, 3) == "dec")
+		{
+			do_dec();
 		}
 		else if (cmd == "")
 		{

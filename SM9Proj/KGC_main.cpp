@@ -311,7 +311,34 @@ Signature KGC_main::sign(const string& msg)
 	return sig;
 }
 
+Signature KGC_main::sign(const string& msg, const string& uid)
+{
+	Signature sig;
+	sig = SM9::sign(sign_pub, getSignPriKey(uid), msg);
+	return sig;
+}
+
 bool KGC_main::verify(const string& uid, Signature sig, const string& msg)
 {
 	return SM9::verify(sign_pub, uid, sig, msg);
+}
+
+string KGC_main::encrypt(const string& uid, const string& msg)
+{
+	return SM9::encrypt(enc_pub, getEncPriKey(), msg);
+}
+
+string KGC_main::decrypt(const string& cipher)
+{
+	return SM9::decrypt(cipher, current_uid, getEncPriKey());
+}
+
+string KGC_main::decrypt(const string& cipher, const string& uid)
+{
+	return SM9::decrypt(cipher, uid, getEncPriKey(uid));
+}
+
+bool KGC_main::haveUser(const string& uid)
+{
+	return Users.find(uid) != Users.end();
 }

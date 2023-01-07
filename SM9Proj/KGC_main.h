@@ -22,11 +22,17 @@ public:
 	static bool createUser(const string& uid); // 创建新用户
 	static bool loadState();
 	static bool saveState();
+	static bool haveUser(const string& uid);
 
 	static Signature sign(const string& msg); // 当前用户对 msg 签名
-	static bool verify(const string &uid, Signature sig, const string &msg); // 验证 uid 的签名
+	static bool verify(const string& uid, Signature sig, const string& msg); // 验证 uid 的签名
 
+	static string encrypt(const string& uid, const string& msg);
+	static string decrypt(const string& cipher);
 
+	// Use for debug and test
+	static Signature sign(const string& msg, const string& uid);
+	static string decrypt(const string& cipher, const string& uid);
 
 private:
 	static void initState();

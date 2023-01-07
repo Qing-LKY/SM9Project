@@ -25,9 +25,8 @@ public:
 	static void do_save();
 	static void do_sig();
 	static void do_ver();
-
-	static string get_string_from_file(FILE* fp, unsigned int off, unsigned int siz);
-	static string gen_signed_text(const string& msg, const Signature& sig);
+	static void do_enc();
+	static void do_dec();
 
 private:
 	static char buf[];
