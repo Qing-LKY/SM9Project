@@ -133,6 +133,7 @@ void Interact::do_help()
 	puts(" ver   ---  to start a verify transaction");
 	puts("            this will read the safe mail and verify it");
 	puts(" save  ---  to save KGC state");
+	puts(" ");
 	puts(" exit  ---  to exit our system");
 }
 
