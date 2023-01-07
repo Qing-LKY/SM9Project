@@ -8,6 +8,10 @@
 
 #include <math.h>
 
+#include <string>
+
+using namespace std;
+
 MasterKeyPair SM9_KGC::genSignMasterKeyPair() {
 	big ke = NULL;
 	ecn2 p_pub;
@@ -82,6 +86,86 @@ std::string SM9_KGC::genSignPrivateKey(const string& masterPrivateK, const strin
 END:
 	BigMath::release_big(t_2);
 	BigMath::release_epoint(dsa);
+
+	return res;
+}
+
+MasterKeyPair SM9_KGC::genEncMasterKeyPair()
+{
+	big ke = NULL;
+	epoint* p_pub = NULL;
+
+	string privateK, publicK;
+
+	if (!SM9::isInited) {
+		throw exception(Status::getStatusTip(SM9_NOT_INITTED).c_str());
+	}
+
+	BigMath::init_big(ke);
+	BigMath::init_epoint(p_pub);
+
+	bigrand(ParamSM9::param_N, ke);
+
+	ecurve_mult(ke, ParamSM9::param_P1, p_pub);
+
+	privateK = Convert::puts_big(ke);
+	publicK = Convert::puts_epoint(p_pub);
+
+	BigMath::release_big(ke);
+	BigMath::release_epoint(p_pub);
+
+	return MasterKeyPair(privateK, publicK);
+}
+
+MasterKeyPair SM9_KGC::genEncMasterKeyPairFromPri(const string& masterPrivateK)
+{
+	big ke = NULL;
+	epoint* p_pub = NULL;
+
+	string privateK, publicK;
+
+	if (!SM9::isInited) {
+		throw exception(Status::getStatusTip(SM9_NOT_INITTED).c_str());
+	}
+
+	BigMath::init_big(ke);
+	BigMath::init_epoint(p_pub);
+
+	Convert::gets_big(ke, masterPrivateK.c_str(), masterPrivateK.length());
+
+	ecurve_mult(ke, ParamSM9::param_P1, p_pub);
+
+	privateK = Convert::puts_big(ke);
+	publicK = Convert::puts_epoint(p_pub);
+
+	BigMath::release_big(ke);
+	BigMath::release_epoint(p_pub);
+
+	return MasterKeyPair(privateK, publicK);
+}
+
+string SM9_KGC::genEncPrivateKey(const string& masterPrivateK, const string& id)
+{
+	big t_2 = NULL;
+	ecn2 dea;
+	string res, st_2;
+
+	BigMath::init_big(t_2);
+	BigMath::init_ecn2(dea);
+
+	st_2 = calcT2(masterPrivateK, id, HID_ENCRYPT);
+
+	if (st_2.empty())
+		goto END;
+	Convert::gets_big(t_2, st_2.c_str(), st_2.length());
+
+	ecn2_copy(&ParamSM9::param_P2, &dea);
+	ecn2_mul(t_2, &dea);
+	res = Convert::puts_ecn2(dea);
+
+END:
+	BigMath::release_big(t_2);
+	BigMath::release_ecn2(dea);
 
 	return res;
 }

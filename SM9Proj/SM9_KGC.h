@@ -23,6 +23,10 @@ public:
 	static MasterKeyPair genSignMasterKeyPairFromPri(const string& masterPrivateK);
 	static string genSignPrivateKey(const string& masterPrivateK, const string& id);
 
+	static MasterKeyPair genEncMasterKeyPair();
+	static MasterKeyPair genEncMasterKeyPairFromPri(const string& masterPrivateK);
+	static string genEncPrivateKey(const string& masterPrivateK, const string& id);
+
 private:
 	/**
 	* 在G1上生成私钥时计算t_1。

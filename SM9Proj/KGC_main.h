@@ -27,20 +27,29 @@ public:
 	static bool verify(const string &uid, Signature sig, const string &msg); // 验证 uid 的签名
 
 
+
 private:
 	static void initState();
-	static bool reloadKeys();
-	static bool checkKeys();
-	static string getPriKey();
-	static string getPriKey(const string& uid);
+	static bool checkSignKeys();
+	static bool checkEncKeys();
+	static string getSignPriKey();
+	static string getEncPriKey();
+	static string getSignPriKey(const string& uid);
+	static string getEncPriKey(const string& uid);
+	static bool reloadSignKeys();
+	static bool reloadEncKeys();
 
 public:
 	static set<string> Users;
 	static string current_uid;
-	static MasterKeyPair mainKey;
+	static string sign_pub;
+	static string enc_pub;
+
 	static int magic_tag;  // 用来标定 KGC 的版本
 
 private:
 	static char SAVE_FILE[];
 	static int MAGIC_NUMBER;
+	static string sign_ke;
+	static string enc_ke;
 };
