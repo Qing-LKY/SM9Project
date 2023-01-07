@@ -354,16 +354,33 @@ string SM9::true_hv(const string& z)
 	return digestSM3.getData();
 }
 
+bool str_not_zero(const string& a)
+{
+	for (auto x : a) if (x) return 1;
+	return 0;
+}
+
+string str_xor(const string& a, const string& b)
+{
+	string c = a;
+	for (int i = 0; i < c.length(); i++)
+		c[i] ^= b[i];
+	return c;
+}
+
 string SM9::encrypt(const string& masterPublicK, const string& uid, const string& message)
 {
-	epoint* Q_B;
-	epoint* p;
-	epoint* pub;
-	big h_1;
+	epoint* Q_B = NULL;
+	epoint* p = NULL;
+	epoint* pub = NULL;
+	big h_1 = NULL;
 	string mH_1;
-	big r;
-	epoint* C_1;
+	big r = NULL;
+	epoint* C_1 = NULL;
 	string mC_1;
+	string mC_2;
+	string mC_3;
+	string C;
 	Pairing g;
 	Pairing w;
 	string mw;
@@ -372,6 +389,7 @@ string SM9::encrypt(const string& masterPublicK, const string& uid, const string
 	string K;
 	string K_1;
 	string K_2;
+	big zero = NULL;
 
 	BigMath::init_epoint(Q_B);
 	BigMath::init_epoint(p);
@@ -379,7 +397,7 @@ string SM9::encrypt(const string& masterPublicK, const string& uid, const string
 	BigMath::init_big(h_1);
 	BigMath::init_big(r);
 	BigMath::init_epoint(C_1);
-
+	BigMath::init_big(zero);
 
 	// A1: Q_B = [H_1 (ID_B || hid, N)] P_1 + P_{pub-e}
 	// h_1 = H_1 (ID_B || hid, N)
@@ -391,7 +409,8 @@ string SM9::encrypt(const string& masterPublicK, const string& uid, const string
 	Convert::gets_epoint(pub, masterPublicK.c_str());
 	ecurve_add(pub, p);
 
-	while (1) {
+	while (1) 
+	{
 		// A2: generate random number r \in [1, N - 1]
 		bigrand(ParamSM9::param_N, r);
 
@@ -415,8 +434,26 @@ string SM9::encrypt(const string& masterPublicK, const string& uid, const string
 		// K_1 = K.substr(0, mlen) K_2 = rest of K
 		K_1 = K.substr(0, mlen);
 		K_2 = K.substr(mlen);
-
-
+		if (str_not_zero(K_1))
+		{
+			mC_2 = str_xor(message, K_1);
+			break;
+		}
 	}
+	// A7:
+	mC_3 = MAC(K_2, mC_2);
+	
+	// A8:
+	C = mC_1 + mC_2 + mC_3;
+	
+END:
+	BigMath::release_epoint(Q_B);
+	BigMath::release_epoint(p);
+	BigMath::release_epoint(pub);
+	BigMath::release_big(h_1);
+	BigMath::release_big(r);
+	BigMath::release_epoint(C_1);
+	BigMath::release_big(zero);
 
+	return C;
 }
