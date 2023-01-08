@@ -5,6 +5,7 @@
 
 using namespace std;
 
+// file utils by qinglkyi
 class QFile
 {
 public:

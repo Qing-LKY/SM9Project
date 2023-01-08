@@ -97,6 +97,9 @@ void Interact::welcome()
 		"and we will be able to generate a signature for your message, "
 		"and others can verify this through us."
 		, c);
+	puts_para("Even more, we provide a tool to encrypt your message text with your friend's uid, "
+		"and the cipher can be decrypted by your friend through us!"
+	, c);
 	puts_para("Types `help' for more infomation", c);
 	puts_middle(" ", c);
 	cutline(c, SHELL_WIDTH);
@@ -199,7 +202,6 @@ void Interact::do_sig()
 {
 	int tmp;
 	string fname, msg, text;
-	FILE* fp;
 	Signature sig;
 
 	puts("Input the text file you want to sign:");
@@ -207,6 +209,7 @@ void Interact::do_sig()
 	
 	// get msg
 	msg = QFile::get_file_content(fname);
+	if (msg.empty()) goto END;
 
 	// get signature
 	sig = KGC_main::sign(msg);
@@ -224,6 +227,8 @@ void Interact::do_sig()
 	fname += ".signed";
 	text = QFile::gen_signed_text(msg, sig, KGC_main::current_uid);
 	QFile::generate_file(fname, text);
+
+END:
 	puts("");
 }
 
@@ -438,6 +443,8 @@ void Interact::main()
 		}
 		else if (cmd.substr(0, 4) == "exit")
 		{
+			puts("Auto Save....");
+			do_save();
 			cout << "See you next time, " << KGC_main::current_uid << " !" << endl;
 			return;
 		}

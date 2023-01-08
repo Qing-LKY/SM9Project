@@ -137,6 +137,7 @@
     <ClCompile Include="Interact.cpp" />
     <ClCompile Include="KGC_main.cpp" />
     <ClCompile Include="Pairing.cpp" />
+    <ClCompile Include="utils\QFile.cpp" />
     <ClCompile Include="Random.cpp" />
     <ClCompile Include="SM3\YHashEngine.cpp" />
     <ClCompile Include="SM3\YSM3.cpp" />
@@ -156,6 +157,7 @@
     <ClInclude Include="miracl.h" />
     <ClInclude Include="mirdef.h" />
     <ClInclude Include="Pairing.h" />
+    <ClInclude Include="utils\QFile.h" />
     <ClInclude Include="Random.h" />
     <ClInclude Include="Signature.h" />
     <ClInclude Include="SM3\YHashEngine.h" />
@@ -172,6 +174,10 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="miracl.pdb" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="tests\enc_prik.txt" />
+    <Text Include="tests\enc_pubk.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

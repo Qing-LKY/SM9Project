@@ -87,6 +87,9 @@
     <ClCompile Include="Interact.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="utils\QFile.cpp">
+      <Filter>GM\utils</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SM9_Parameters.h">
@@ -143,6 +146,9 @@
     <ClInclude Include="Interact.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="utils\QFile.h">
+      <Filter>GM\utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Library Include="miracl.lib">
@@ -153,5 +159,9 @@
     <None Include="miracl.pdb">
       <Filter>GM\Miracl\lib</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="tests\enc_pubk.txt" />
+    <Text Include="tests\enc_prik.txt" />
   </ItemGroup>
 </Project>

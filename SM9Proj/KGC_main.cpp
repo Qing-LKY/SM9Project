@@ -13,6 +13,7 @@
 #include <vector>
 #include <set>
 #include <algorithm>
+#include <iostream>
 
 #include <cstdio>
 #include <malloc.h>
@@ -64,6 +65,7 @@ void KGC_main::initState()
 }
 
 #define DEBUG_LOAD
+#undef DEBUG_LOAD
 
 bool KGC_main::loadState()
 {
@@ -83,10 +85,14 @@ bool KGC_main::loadState()
 	// 获取 tag
 	fread(&magic_tag, sizeof(int), 1, fp);
 
+#ifdef DEBUG_LOAD
+	printf("magic_tag: %d\n", magic_tag);
+#endif
+
 	// 获取 mxlen
 	fread(&mxlen, sizeof(int), 1, fp);
 	mxlen++;
-	if (mxlen > 100000)
+	if (mxlen > 100000 || mxlen <= 0)
 	{
 		// puts("Error when loadState: too large!");
 		fclose(fp);
@@ -95,50 +101,83 @@ bool KGC_main::loadState()
 	buf = (char*)malloc(mxlen);
 	if (buf == NULL) return fclose(fp), false; // failed malloc
 
+#ifdef DEBUG_LOAD
+	printf("max_len: %d\n", mxlen);
+#endif
+
 	// 获取签名主私钥
 	fread(&len, sizeof(int), 1, fp);
-	if (len > mxlen) return fclose(fp), false; // sth broken
+	if (len > mxlen || len <= 0) goto FAILED; // sth broken
 	fread(buf, sizeof(char), len, fp);
 	tmp.assign(buf, buf + len);
 	// 生成签名主密钥对
 	mainKey = SM9_KGC::genSignMasterKeyPairFromPri(tmp); 
 	sign_pub = mainKey.getPublicKey();
 	sign_ke = mainKey.getPrivateKey();
-	
+
+#ifdef DEBUG_LOAD
+	printf("sign_ke: len=%d\n", len);
+	cout << YHex::Encode(tmp) << endl;
+#endif
+
 	// 获取加密主密钥
 	fread(&len, sizeof(int), 1, fp);
-	if (len > mxlen) return fclose(fp), false; // sth broken
+	if (len > mxlen || len <= 0) goto FAILED; // sth broken
 	fread(buf, sizeof(char), len, fp);
 	tmp.assign(buf, buf + len);
 	// 生成加密主密钥对
 	mainKey = SM9_KGC::genEncMasterKeyPairFromPri(tmp);
-	sign_pub = mainKey.getPublicKey();
-	sign_ke = mainKey.getPrivateKey();
+	enc_pub = mainKey.getPublicKey();
+	enc_ke = mainKey.getPrivateKey();
+
+#ifdef DEBUG_LOAD
+	printf("enc_ke: len=%d\n", len);
+	cout << YHex::Encode(tmp) << endl;
+#endif
 
 	// 获取人数
 	fread(&n, sizeof(int), 1, fp);
+
+#ifdef DEBUG_LOAD
+	printf("n: %d\n", n);
+#endif
+
+	if (n < 0) goto FAILED;
+
 	while (n--) 
 	{
 		// 加入 uid
 		fread(&len, sizeof(int), 1, fp);
-		if (len > mxlen) return fclose(fp), false; // sth broken
+		if (len > mxlen || len <= 0) goto FAILED; // sth broken
 		fread(buf, sizeof(char), len, fp);
 		tmp.assign(buf, buf + len);
 		Users.insert(tmp);
+#ifdef DEBUG_LOAD
+		cout << "User: " << tmp << endl;
+#endif
 	}
 
 	// 获取当前用户
 	fread(&len, sizeof(int), 1, fp);
-	if (len > mxlen) return fclose(fp), false; // sth broken
+	if (len > mxlen || len <= 0) goto FAILED; // sth broken
 	fread(buf, sizeof(char), len, fp);
 	current_uid.assign(buf, buf + len);
 
+#ifdef DEBUG_LOAD
+	cout << "current uid: " << current_uid << endl;
+#endif
+
 	fread(&len, sizeof(int), 1, fp);
-	if (len != MAGIC_NUMBER) return fclose(fp), false; // 文件可能被破坏了
+	if (len != MAGIC_NUMBER) goto FAILED; // 文件可能被破坏了
 
 	free(buf);
 	fclose(fp);
 	return true;
+
+FAILED:
+	free(buf);
+	fclose(fp);
+	return false;
 }
 
 bool KGC_main::saveState()
@@ -168,26 +207,49 @@ bool KGC_main::saveState()
 	fwrite(&len, sizeof(int), 1, fp);
 	fwrite(prik.c_str(), sizeof(char), len, fp);
 
+#ifdef DEBUG_LOAD
+	printf("sign_ke: len=%d\n", len);
+	cout << YHex::Encode(prik) << endl;
+#endif
+
 	// 保存 enc_ke
 	prik = enc_ke;
 	len = prik.length();
 	fwrite(&len, sizeof(int), 1, fp);
 	fwrite(prik.c_str(), sizeof(char), len, fp);
 	
+#ifdef DEBUG_LOAD
+	printf("enc_ke: len=%d\n", len);
+	cout << YHex::Encode(prik) << endl;
+#endif
+
 	// 保存用户
 	len = Users.size();
 	fwrite(&len, sizeof(int), 1, fp);
+
+#ifdef DEBUG_LOAD
+	cout << "n: " << len << endl;
+#endif
+
 	for (auto uid : Users) 
 	{
 		len = uid.length();
 		fwrite(&len, sizeof(int), 1, fp);
 		fwrite(uid.c_str(), sizeof(char), len, fp);
+	
+#ifdef DEBUG_LOAD
+		cout << "User: " << uid << endl;
+#endif
 	}
 
 	// 保存当前用户
 	len = current_uid.size();
 	fwrite(&len, sizeof(int), 1, fp);
 	fwrite(current_uid.c_str(), sizeof(char), len, fp);
+	
+#ifdef DEBUG_LOAD
+	cout << "Current User: " << current_uid << endl;
+#endif
 
 	fwrite(&MAGIC_NUMBER, sizeof(int), 1, fp);
 	
